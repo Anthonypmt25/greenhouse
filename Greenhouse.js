@@ -1,112 +1,98 @@
 class GreenhouseClient {
-  constructor(t) {
-    (this.apiEndpoint = t), (this.dataType = this.determineDataType(t));
-  }
-  determineDataType(t) {
-    return t.includes("/departments")
-      ? "departments"
-      : t.includes("/jobs")
-      ? "jobs"
-      : null;
-  }
-  async fetchData() {
-    if (!this.apiEndpoint || !this.dataType) return;
-    const t = {
-      method: "GET",
-      redirect: "follow",
-      headers: { "Content-Type": "application/json" }
-    };
-    try {
-      const e = await fetch(this.apiEndpoint, t);
-      if (!e.ok) throw new Error(`HTTP error! status: ${e.status}`);
-      const n = await e.json();
-      if ("departments" === this.dataType && !n.departments) return;
-      if ("jobs" === this.dataType && !n.jobs) return;
-      (this.data = n),
-        "departments" === this.dataType
-          ? this.populateDepartments(n.departments)
-          : this.populateJobs(n.jobs);
-    } catch (t) {}
-  }
-  populateDepartments(t) {
-    const e = document.querySelector("[gw-departments-container]");
-    if (!e) return;
-    if (!t || 0 === t.length)
-      return void (e.textContent = "No departments found.");
-    const n = document.querySelector("[gw-departments-item]");
-    n &&
-      (n.remove(),
-      t.forEach((t) => {
-        const o = n.cloneNode(!0);
-        if (((o.style.display = ""), !t.jobs || 0 === t.jobs.length))
-          return void (o.style.display = "none");
-        o.setAttribute("gw-department-item", t.name);
-        const a = o.querySelector("[gw-departments-quantity]");
-        a && (a.textContent = "(" + t.jobs.length + ")");
-        const s = o.querySelector("[gw-departments-title]");
-        s && (s.textContent = t.name),
-          e.appendChild(o),
-          t.jobs &&
-            t.jobs.length > 0 &&
-            this.populateJobs(t.jobs, o.querySelector("[gw-jobs-container]"));
-      }));
-  }
-  populateJobs(t, e = document.querySelector("[gw-jobs-container]")) {
-    if (!e) return;
-    const n = e.querySelector("[gw-jobs-item]");
-    n &&
-      (n.remove(),
-      t.forEach((t) => {
-        const o = n.cloneNode(!0);
-        o.style.display = "";
-        const a = o.querySelector("[gw-jobs-title]");
-        a && (a.textContent = t.title);
-        const s = o.querySelector("[gw-jobs-location]");
-        s && t.location && (s.textContent = t.location.name);
-        const r = o.querySelector("[gw-jobs-apply]");
-        r && ((r.href = t.absolute_url), (r.target = "_blank")),
-          e.appendChild(o);
-      }));
-  }
-  filterDepartments(t) {
-    if (!t) return;
-    const e = document.querySelector("[gw-filter-departments]");
-    if (e) {
-      for (; e.options.length > 1; ) e.remove(1);
-      if (0 === e.options.length || "" !== e.options[0].value) {
-        const t = new Option("All Departments", "", !0, !0);
-        e.add(t, e.options[0]);
-      }
-      t.forEach((t) => {
-        if (t.jobs && t.jobs.length > 0) {
-          const n = new Option(t.name, t.name);
-          e.add(n);
+    constructor(apiEndpoint) {
+        this.apiEndpoint = apiEndpoint;
+        this.dataType = this.determineDataType(apiEndpoint);
+    }
+
+    determineDataType(apiEndpoint) {
+        return apiEndpoint.includes("/departments") ? "departments" : null;
+    }
+
+    async fetchData() {
+        if (!this.apiEndpoint || !this.dataType) return;
+
+        const requestOptions = {
+            method: "GET",
+            redirect: "follow",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        };
+
+        try {
+            const response = await fetch(this.apiEndpoint, requestOptions);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            this.data = await response.json();
+            if (this.dataType === "departments" && !this.data.departments) {
+                return;
+            }
+            this.populateDepartments(this.data.departments);
+        } catch (error) {
+            console.error('Error fetching data:', error);
         }
-      }),
-        e.addEventListener("change", (t) => {
-          const e = t.target.value;
-          document.querySelectorAll("[gw-departments-item]").forEach((t) => {
-            "" === e || t.getAttribute("gw-department-item") === e
-              ? (t.style.display = "")
-              : (t.style.display = "none");
-          });
+    }
+
+    populateDepartments(departments) {
+        const container = document.querySelector("[gw-departments-container]");
+        if (!container) return;
+        
+        // Clear existing departments
+        container.innerHTML = '';
+
+        if (!departments || departments.length === 0) {
+            container.textContent = "No departments found.";
+            return;
+        }
+
+        departments.forEach(department => {
+            const departmentElement = document.createElement('div');
+            departmentElement.setAttribute("gw-department-item", department.name);
+            departmentElement.textContent = department.name;
+            container.appendChild(departmentElement);
         });
     }
-  }
-  static init(t) {
-    const e = new GreenhouseClient(t);
-    document.addEventListener("DOMContentLoaded", () => {
-      "departments" === e.dataType &&
-      document.querySelector("[gw-departments-item]")
-        ? e.fetchData().then(() => {
-            e.data &&
-              e.data.departments &&
-              e.filterDepartments(e.data.departments);
-          })
-        : "jobs" === e.dataType &&
-          document.querySelector("[gw-jobs-item]") &&
-          e.fetchData();
-    });
-  }
+
+    filterDepartments(departments) {
+        const filterSelect = document.querySelector("[gw-filter-departments]");
+        if (!filterSelect) return;
+
+        // Clear existing options
+        filterSelect.innerHTML = '';
+
+        // Add default option
+        const defaultOption = new Option("All Departments", "");
+        filterSelect.appendChild(defaultOption);
+
+        departments.forEach(department => {
+            const option = new Option(department.name, department.name);
+            filterSelect.appendChild(option);
+        });
+
+        filterSelect.addEventListener("change", (event) => {
+            const selectedDepartment = event.target.value;
+
+            document.querySelectorAll("[gw-department-item]").forEach(item => {
+                if (selectedDepartment === "" || item.getAttribute("gw-department-item") === selectedDepartment) {
+                    item.style.display = "";
+                } else {
+                    item.style.display = "none";
+                }
+            });
+        });
+    }
+
+    static init(apiEndpoint) {
+        const client = new GreenhouseClient(apiEndpoint);
+        document.addEventListener("DOMContentLoaded", () => {
+            if (client.dataType === "departments" && document.querySelector("[gw-departments-container]")) {
+                client.fetchData().then(() => {
+                    client.data && client.data.departments && client.filterDepartments(client.data.departments);
+                });
+            }
+        });
+    }
 }
+
 window.runGreenhouseClient = GreenhouseClient.init;
