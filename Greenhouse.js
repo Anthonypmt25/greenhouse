@@ -5,7 +5,9 @@ class GreenhouseClient {
     }
 
     determineDataType(apiEndpoint) {
-        return apiEndpoint.includes("/departments") ? "departments" : null;
+        return apiEndpoint.includes("/departments") ? "departments" :
+            apiEndpoint.includes("/jobs") ? "jobs" :
+            null;
     }
 
     async fetchData() {
@@ -24,78 +26,71 @@ class GreenhouseClient {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            this.data = await response.json();
-            if (this.dataType === "departments" && !this.data.departments) {
-                return;
+
+            const data = await response.json();
+            if (this.dataType === "departments" && !data.departments) return;
+            if (this.dataType === "jobs" && !data.jobs) return;
+
+            this.data = data;
+            if (this.dataType === "departments") {
+                this.filterDepartments(data.departments);
+            } else {
+                this.populateJobs(data.jobs);
             }
-            this.populateDepartments(this.data.departments);
         } catch (error) {
-            console.error('Error fetching data:', error);
+            console.error("Error fetching data:", error);
         }
-    }
-
-    populateDepartments(departments) {
-        const container = document.querySelector("[gw-departments-container]");
-        if (!container) return;
-
-        // Clear existing departments
-        container.innerHTML = '';
-
-        if (!departments || departments.length === 0) {
-            container.textContent = "No departments found.";
-            return;
-        }
-
-        departments.forEach(department => {
-            // Only create elements for departments named "Product Design"
-            if (department.name === "Product Design") {
-                const departmentElement = document.createElement('div');
-                departmentElement.setAttribute("gw-department-item", department.name);
-                departmentElement.textContent = department.name;
-                container.appendChild(departmentElement);
-            }
-        });
     }
 
     filterDepartments(departments) {
-        const filterSelect = document.querySelector("[gw-filter-departments]");
-        if (!filterSelect) return;
+        const departmentContainer = document.querySelector("[gw-departments-container]");
+        if (!departmentContainer) return;
 
-        // Clear existing options
-        filterSelect.innerHTML = '';
+        const departmentsToShow = departments.filter(department => department.name === "Product Design");
 
-        // Add default option
-        const defaultOption = new Option("All Departments", "");
-        filterSelect.appendChild(defaultOption);
-
-        departments.forEach(department => {
-            // Only add options for departments named "Product Design"
-            if (department.name === "Product Design") {
-                const option = new Option(department.name, department.name);
-                filterSelect.appendChild(option);
+        departmentsToShow.forEach(department => {
+            const departmentItem = document.querySelector(`[gw-department-item="${department.name}"]`);
+            if (departmentItem) {
+                departmentItem.style.display = "";
+                this.populateJobs(department.jobs, departmentItem.querySelector("[gw-jobs-container]"));
             }
         });
 
-        filterSelect.addEventListener("change", (event) => {
-            const selectedDepartment = event.target.value;
+        const allDepartmentItems = document.querySelectorAll("[gw-departments-item]");
+        allDepartmentItems.forEach(item => {
+            if (!departmentsToShow.find(department => item.getAttribute("gw-department-item") === department.name)) {
+                item.style.display = "none";
+            }
+        });
+    }
 
-            document.querySelectorAll("[gw-department-item]").forEach(item => {
-                if (selectedDepartment === "" || item.getAttribute("gw-department-item") === selectedDepartment) {
-                    item.style.display = "";
-                } else {
-                    item.style.display = "none";
-                }
-            });
+    populateJobs(jobs, container = document.querySelector("[gw-jobs-container]")) {
+        if (!container) return;
+
+        const jobsItemTemplate = container.querySelector("[gw-jobs-item]");
+        if (!jobsItemTemplate) return;
+
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
+        jobs.forEach(job => {
+            const jobItem = jobsItemTemplate.cloneNode(true);
+            jobItem.style.display = "";
+            jobItem.querySelector("[gw-jobs-title]").textContent = job.title;
+            jobItem.querySelector("[gw-jobs-location]").textContent = job.location.name;
+            jobItem.querySelector("[gw-jobs-apply]").setAttribute("href", job.absolute_url);
+            container.appendChild(jobItem);
         });
     }
 
     static init(apiEndpoint) {
-        const client = new GreenhouseClient(apiEndpoint);
+        const greenhouseClient = new GreenhouseClient(apiEndpoint);
         document.addEventListener("DOMContentLoaded", () => {
-            if (client.dataType === "departments" && document.querySelector("[gw-departments-container]")) {
-                client.fetchData().then(() => {
-                    client.data && client.data.departments && client.filterDepartments(client.data.departments);
-                });
+            if (greenhouseClient.dataType === "departments" && document.querySelector("[gw-departments-item]")) {
+                greenhouseClient.fetchData();
+            } else if (greenhouseClient.dataType === "jobs" && document.querySelector("[gw-jobs-item]")) {
+                greenhouseClient.fetchData();
             }
         });
     }
