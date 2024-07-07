@@ -37,7 +37,7 @@ class GreenhouseClient {
     populateDepartments(departments) {
         const container = document.querySelector("[gw-departments-container]");
         if (!container) return;
-        
+
         // Clear existing departments
         container.innerHTML = '';
 
@@ -47,10 +47,13 @@ class GreenhouseClient {
         }
 
         departments.forEach(department => {
-            const departmentElement = document.createElement('div');
-            departmentElement.setAttribute("gw-department-item", department.name);
-            departmentElement.textContent = department.name;
-            container.appendChild(departmentElement);
+            // Only create elements for departments named "Product Design"
+            if (department.name === "Product Design") {
+                const departmentElement = document.createElement('div');
+                departmentElement.setAttribute("gw-department-item", department.name);
+                departmentElement.textContent = department.name;
+                container.appendChild(departmentElement);
+            }
         });
     }
 
@@ -66,8 +69,11 @@ class GreenhouseClient {
         filterSelect.appendChild(defaultOption);
 
         departments.forEach(department => {
-            const option = new Option(department.name, department.name);
-            filterSelect.appendChild(option);
+            // Only add options for departments named "Product Design"
+            if (department.name === "Product Design") {
+                const option = new Option(department.name, department.name);
+                filterSelect.appendChild(option);
+            }
         });
 
         filterSelect.addEventListener("change", (event) => {
